@@ -104,11 +104,23 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         connectDialog.show();
         findViewById(R.id.lock_btn).setOnClickListener(this);
         findViewById(R.id.unlock_btn).setOnClickListener(this);
-        findViewById(R.id.truck_btn).setOnClickListener(this);
-        findViewById(R.id.power_btn).setOnLongClickListener(v -> {
+        findViewById(R.id.driver_btn).setOnLongClickListener(v -> {
+            driverDialog.show();
+            return true;
+        });
+        findViewById(R.id.truck_btn).setOnLongClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("提示")
                     .setMessage("是否开启后备箱")
+                    .setPositiveButton("确认", (dialog, which) -> onClick(v))
+                    .setNegativeButton("取消", null)
+                    .create().show();
+            return true;
+        });
+        findViewById(R.id.power_btn).setOnLongClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("提示")
+                    .setMessage("是否启动/熄火\n启动会打开空调")
                     .setPositiveButton("确认", (dialog, which) -> onClick(v))
                     .setNegativeButton("取消", null)
                     .create().show();
