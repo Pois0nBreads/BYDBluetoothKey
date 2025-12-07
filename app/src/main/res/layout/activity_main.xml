@@ -18,28 +18,35 @@
             android:text="@string/unlock_btn"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:layout_width="200dp"
-            android:layout_height="80dp"/>
+            android:layout_height="70dp"/>
 
         <Button
             android:id="@+id/lock_btn"
             android:text="@string/lock_btn"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:layout_width="200dp"
-            android:layout_height="80dp"/>
+            android:layout_height="70dp"/>
 
         <Button
             android:id="@+id/truck_btn"
             android:text="@string/truck_btn"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:layout_width="200dp"
-            android:layout_height="80dp"/>
+            android:layout_height="70dp"/>
 
         <Button
             android:id="@+id/power_btn"
             android:text="@string/power_btn"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:layout_width="200dp"
-            android:layout_height="80dp"/>
+            android:layout_height="70dp"/>
+
+        <Button
+            android:id="@+id/driver_btn"
+            android:text="@string/driver_btn"
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:layout_width="200dp"
+            android:layout_height="70dp"/>
 
     </LinearLayout>
 

@@ -7,7 +7,10 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.byd.jnitest.JNI;
@@ -16,15 +19,34 @@ import com.byd.jnitest.Utils;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class MainActivity extends BlueToothActivity implements View.OnClickListener {
+public class MainActivity extends BlueToothActivity implements View.OnClickListener, View.OnTouchListener {
+
+    private final static String TAG = "MainActivity";
 
     private MyApplication myApplication = null;
     private JNI jni = null;
     private BluetoothDevice bluetoothDevice = null;
     private CommThread commThread = null;
+
+    private final static int DRIVER_CODE_UP = 1;
+    private final static int DRIVER_CODE_LEFT = 2;
+    private final static int DRIVER_CODE_RIGHT = 3;
+    private final static int DRIVER_CODE_DOWN = 4;
+    private final static int DRIVER_CODE_NONE = 0;
+    private Button btn_up;
+    private Button btn_left;
+    private Button btn_right;
+    private Button btn_down;
+    private TextView driver_display;
+    private int driverCode = DRIVER_CODE_NONE;
+    private Timer driverTimer;
+
     private AlertDialog processDialog;
     private AlertDialog connectDialog;
+    private AlertDialog driverDialog;
 
     private String username;
     private String password;
@@ -38,6 +60,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         super.onStart();
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,6 +70,25 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         password = mSharedPreferences.getString(PREFERENCES_PASSWORD, "");
         macAddress = mSharedPreferences.getString(PREFERENCES_MAC_ADDRESS, "");
         devName = mSharedPreferences.getString(PREFERENCES_DEV_NAME, "");
+
+        View view = getLayoutInflater().inflate(R.layout.dialog_driver, null);
+        btn_up = view.findViewById(R.id.btn_driver_up);
+        btn_left = view.findViewById(R.id.btn_driver_left);
+        btn_right = view.findViewById(R.id.btn_driver_right);
+        btn_down = view.findViewById(R.id.btn_driver_down);
+        driver_display = view.findViewById(R.id.btn_text_test);
+        btn_up.setOnTouchListener(this);
+        btn_left.setOnTouchListener(this);
+        btn_right.setOnTouchListener(this);
+        btn_down.setOnTouchListener(this);
+
+        driverDialog = new AlertDialog.Builder(this)
+                .setOnDismissListener(dialog -> driverBtnUp())
+                .setCancelable(false)
+                .setTitle("遥控驾驶")
+                .setNegativeButton("退出遥控驾驶", (dialog, which) -> dialog.dismiss())
+                .setView(view)
+                .create();
 
         processDialog = new AlertDialog.Builder(this)
                 .setTitle("提示")
@@ -108,8 +150,12 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                             continue;
                         }
                         if (!connectDialog.isShowing()) {
-                            runOnUiThread(()->Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show());
-                            connectDialog.show();
+                            runOnUiThread(()-> {
+                                driverDialog.dismiss();
+                                processDialog.dismiss();
+                                connectDialog.show();
+                                Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
+                            });
                         }
                         try {
                             Method method = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
@@ -122,11 +168,12 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                         }
                     }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     runOnUiThread(()->{
                         Toast.makeText(myApplication, "连接出错", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "连接出错");
                         finish();
                     });
-                    e.printStackTrace();
                 }
             }).start();
         } else {
@@ -148,6 +195,9 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        driverDialog.dismiss();
+        processDialog.dismiss();
+        connectDialog.dismiss();
         if (commThread != null)
             commThread.endRun();
     }
@@ -193,5 +243,125 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             processDialog.dismiss();
             Toast.makeText(myApplication, "发送失败", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    @SuppressLint({"ClickableViewAccessibility", "NonConstantResourceId"})
+    @Override
+    public boolean onTouch(View v, MotionEvent event) {
+        boolean flag = v.performClick();
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                if (this.commThread == null || !this.commThread.isRun()) {
+                    Toast.makeText(myApplication, "蓝牙未连接", Toast.LENGTH_SHORT).show();
+                    return flag;
+                }
+                Log.i("onTrouchEvent", "ACTION_DOWN");
+                switch (v.getId()) {
+                    case R.id.btn_driver_up:
+                        btn_left.setEnabled(false);
+                        btn_right.setEnabled(false);
+                        btn_down.setEnabled(false);
+                        driverCode = DRIVER_CODE_UP;
+                        break;
+                    case R.id.btn_driver_left:
+                        btn_up.setEnabled(false);
+                        btn_right.setEnabled(false);
+                        btn_down.setEnabled(false);
+                        driverCode = DRIVER_CODE_LEFT;
+                        break;
+                    case R.id.btn_driver_right:
+                        btn_up.setEnabled(false);
+                        btn_left.setEnabled(false);
+                        btn_down.setEnabled(false);
+                        driverCode = DRIVER_CODE_RIGHT;
+                        break;
+                    case R.id.btn_driver_down:
+                        btn_up.setEnabled(false);
+                        btn_left.setEnabled(false);
+                        btn_right.setEnabled(false);
+                        driverCode = DRIVER_CODE_DOWN;
+                        break;
+                    default:
+                        driverCode = DRIVER_CODE_NONE;
+                        break;
+                }
+                driverBtnDown();
+                break;
+            case MotionEvent.ACTION_UP:
+                driverBtnUp();
+                Log.i("onTrouchEvent", "ACTION_UP");
+                break;
+            case MotionEvent.ACTION_CANCEL:
+                driverBtnUp();
+                Log.i("onTrouchEvent", "ACTION_CANCEL");
+                return true;
+        }
+        return flag;
+    }
+
+    private void setDriverDisplay(int pos) {
+        String disText;
+        switch (driverCode) {
+            case DRIVER_CODE_UP:
+                disText = "正在前进 - " + pos;
+                break;
+            case DRIVER_CODE_LEFT:
+                disText = "正在左转 - " + pos;
+                break;
+            case DRIVER_CODE_RIGHT:
+                disText = "正在右转 - " + pos;
+                break;
+            case DRIVER_CODE_DOWN:
+                disText = "正在后退 - " + pos;
+                break;
+            default:
+                disText = "待机中";
+                break;
+        }
+        driver_display.setText(disText);
+        Log.i("RemoteDriving", disText);
+    }
+
+    private void driverBtnDown() {
+        driverTimer = new Timer();
+        driverTimer.schedule(new TimerTask() {
+            int pos = 0;
+            @Override
+            public void run() {
+                pos++;
+                byte[] CMD;
+                switch (driverCode) {
+                    case DRIVER_CODE_UP:
+                        CMD = jni.forwardRequest();
+                        break;
+                    case DRIVER_CODE_LEFT:
+                        CMD = jni.turnLeftRequest();
+                        break;
+                    case DRIVER_CODE_RIGHT:
+                        CMD = jni.turnRightRequest();
+                        break;
+                    case DRIVER_CODE_DOWN:
+                        CMD = jni.drawBackdRequest();
+                        break;
+                    default:
+                        return;
+                }
+                commThread.sendData(CMD, (resultCode, errorCode) -> {}, 0);
+                runOnUiThread(() -> setDriverDisplay(pos));
+            }
+        }, 0, 100);
+    }
+
+    private void driverBtnUp() {
+        if (driverTimer == null)
+            return;
+        driverTimer.cancel();
+        driverTimer = null;
+        driverCode = DRIVER_CODE_NONE;
+        this.btn_up.setEnabled(true);
+        this.btn_left.setEnabled(true);
+        this.btn_right.setEnabled(true);
+        this.btn_down.setEnabled(true);
+        setDriverDisplay(0);
     }
 }
