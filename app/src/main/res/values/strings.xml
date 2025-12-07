@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">蓝牙钥匙</string>
+    <string name="long_label">设置</string>
+    <string name="short_label">设置</string>
+    <string name="user_label">用户名:</string>
+    <string name="pass_label">密  码:</string>
+    <string name="dev_name_label">设备名:</string>
+    <string name="dev_mac_label">设备Mac:</string>
+    <string name="save_btn_label">保存</string>
+    <string name="reflush_btn_label">刷新</string>
+    <string name="truck_btn">打开后备箱</string>
+    <string name="lock_btn">上锁车辆</string>
+    <string name="unlock_btn">解锁车辆</string>
+    <string name="power_btn">长按熄火/启动</string>
+</resources>
