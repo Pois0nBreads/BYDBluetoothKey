@@ -8,8 +8,9 @@
     <string name="dev_mac_label">设备Mac:</string>
     <string name="save_btn_label">保存</string>
     <string name="reflush_btn_label">刷新</string>
-    <string name="truck_btn">打开后备箱</string>
+    <string name="truck_btn">长按打开后备箱</string>
     <string name="lock_btn">上锁车辆</string>
     <string name="unlock_btn">解锁车辆</string>
     <string name="power_btn">长按熄火/启动</string>
+    <string name="driver_btn">长按遥控驾驶</string>
 </resources>
