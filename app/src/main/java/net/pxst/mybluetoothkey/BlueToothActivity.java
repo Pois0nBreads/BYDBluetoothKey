@@ -26,6 +26,7 @@ public class BlueToothActivity extends Activity {
     protected static final String PREFERENCES_FIRST_USE = "first_use";
 
     protected static String[] PERMISSION_LIST;
+    protected MyApplication myApplication = null;
 
     static {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -47,16 +48,22 @@ public class BlueToothActivity extends Activity {
 
     protected BluetoothAdapter bluetoothAdapter = null;
     protected SharedPreferences mSharedPreferences = null;
+    private boolean initFinished = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        myApplication = (MyApplication) getApplication();
+        myApplication.setActivity(this);
         mSharedPreferences = getSharedPreferences(PREFERENCES_SETTINGS, MODE_PRIVATE);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        if (initFinished)
+            return;
+        initFinished = true;
         if (checkPermissionAllGranted()) {
             hasPermission();
         } else {

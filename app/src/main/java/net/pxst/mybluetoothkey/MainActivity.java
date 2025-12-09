@@ -26,7 +26,6 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     private final static String TAG = "MainActivity";
 
-    private MyApplication myApplication = null;
     private JNI jni = null;
     private BluetoothDevice bluetoothDevice = null;
     private CommThread commThread = null;
@@ -47,18 +46,14 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private AlertDialog processDialog;
     private AlertDialog connectDialog;
     private AlertDialog driverDialog;
+    private Toast retryToast;
+    private Thread mBluetoothThread;
 
     private String username;
     private String password;
     private String macAddress;
     private String devName;
-
-    @Override
-    protected void onStart() {
-        myApplication = (MyApplication) getApplication();
-        myApplication.setActivity(this);
-        super.onStart();
-    }
+    private boolean isShowing = false;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -81,6 +76,8 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         btn_left.setOnTouchListener(this);
         btn_right.setOnTouchListener(this);
         btn_down.setOnTouchListener(this);
+
+        retryToast = Toast.makeText(myApplication, "连接超时,正在重试...", Toast.LENGTH_SHORT);
 
         driverDialog = new AlertDialog.Builder(this)
                 .setOnDismissListener(dialog -> driverBtnUp())
@@ -128,10 +125,62 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         });
         try {
             jni = new JNI(username, password);
+            initConnectThread();
         } catch (UnsupportedEncodingException e) {
+            Log.e(TAG, "UnsupportedEncodingException:" + e.getMessage());
             finish();
-            throw new RuntimeException(e);
         }
+    }
+
+    private void initConnectThread() {
+        mBluetoothThread = new Thread(() -> {
+            try {
+                //循环连接设备
+                do {
+                    if (!this.isShowing)
+                        continue;
+                    if (this.commThread != null && this.commThread.isRun()) {
+                        if (connectDialog.isShowing())
+                            runOnUiThread(() -> connectDialog.dismiss());
+                        continue;
+                    }
+                    if (!connectDialog.isShowing()) {
+                        runOnUiThread(() -> {
+                            driverDialog.dismiss();
+                            processDialog.dismiss();
+                            connectDialog.show();
+                            Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                    try {
+                        Method method = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
+                        BluetoothSocket bluetoothSocket = (BluetoothSocket) method.invoke(bluetoothDevice, 1);
+                        retryToast.cancel();
+                        this.commThread = new CommThread(bluetoothSocket);
+                        this.commThread.start(); //这行忘写了
+                    } catch (IOException e) {
+                        runOnUiThread(() -> retryToast.show());
+                        Log.e(TAG, Thread.currentThread().getName() + ": 连接超时,正在重试...", e);
+//                        Thread.sleep(1000);
+                    } finally {
+                        if (isDestroyed()) {
+                            if (this.commThread != null)
+                                this.commThread.endRun();
+                            Log.i(TAG, Thread.currentThread().getName() + ": 程序已退出，结束不该有的commThread");
+                        }
+                    }
+                } while (!isDestroyed());
+            } catch (Exception e) {
+                Log.e(TAG, "连接出错", e);
+                if (!isDestroyed())
+                    runOnUiThread(() -> new AlertDialog.Builder(this)
+                        .setTitle("错误")
+                        .setMessage("连接出错")
+                        .setOnDismissListener(dialog -> finish())
+                        .setPositiveButton("OK", null)
+                        .create().show());
+            }
+        });
     }
 
     @Override
@@ -146,48 +195,19 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         bluetoothDevice = bluetoothAdapter.getRemoteDevice(macAddress);
         if (bluetoothDevice.getBondState() == BluetoothDevice.BOND_NONE) {
             Toast.makeText(myApplication, "设备未配对", Toast.LENGTH_SHORT).show();
-            startActivity(new Intent("android.settings.BLUETOOTH_SETTINGS"));
-            finish();
+            new AlertDialog.Builder(this)
+                    .setTitle("错误")
+                    .setMessage("设备未配对")
+                    .setOnDismissListener(dialog -> {
+                        startActivity(new Intent("android.settings.BLUETOOTH_SETTINGS"));
+                        finish();
+                    })
+                    .setPositiveButton("OK", null)
+                    .create().show();
         } else if (bluetoothDevice.getBondState() == BluetoothDevice.BOND_BONDED) {
             //开始连接到蓝牙
-            new Thread(() -> {
-                try {
-                    //循环连接设备
-                    while (!isFinishing()) {
-                        if (this.commThread != null && this.commThread.isRun()) {
-                            connectDialog.dismiss();
-                            try {
-                                Thread.sleep(1000);
-                            } catch (Exception ignored){}
-                            continue;
-                        }
-                        if (!connectDialog.isShowing()) {
-                            runOnUiThread(()-> {
-                                driverDialog.dismiss();
-                                processDialog.dismiss();
-                                connectDialog.show();
-                                Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                        try {
-                            Method method = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
-                            BluetoothSocket bluetoothSocket = (BluetoothSocket) method.invoke(bluetoothDevice, 1);
-                            this.commThread = new CommThread(bluetoothSocket);
-                            this.commThread.start(); //这行忘写了
-                        } catch (IOException e) {
-                            runOnUiThread(()->Toast.makeText(myApplication, "连接超时,正在重试...", Toast.LENGTH_SHORT).show());
-                            e.printStackTrace();
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    runOnUiThread(()->{
-                        Toast.makeText(myApplication, "连接出错", Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "连接出错");
-                        finish();
-                    });
-                }
-            }).start();
+            if (!mBluetoothThread.isAlive())
+                mBluetoothThread.start();
         } else {
             new AlertDialog.Builder(this)
                     .setTitle("错误")
@@ -199,14 +219,26 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        finish();
+    protected void onStart() {
+        super.onStart();
+        isShowing = true;
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        isShowing = false;
+        driverDialog.dismiss();
+        processDialog.dismiss();
+        connectDialog.show();
+        if (this.commThread != null)
+            commThread.endRun();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d(TAG, "onDestory");
         driverDialog.dismiss();
         processDialog.dismiss();
         connectDialog.dismiss();
@@ -338,6 +370,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         driverTimer = new Timer();
         driverTimer.schedule(new TimerTask() {
             int pos = 0;
+
             @Override
             public void run() {
                 pos++;
@@ -358,7 +391,8 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                     default:
                         return;
                 }
-                commThread.sendData(CMD, (resultCode, errorCode) -> {}, 0);
+                commThread.sendData(CMD, (resultCode, errorCode) -> {
+                }, 0);
                 runOnUiThread(() -> setDriverDisplay(pos));
             }
         }, 0, 100);

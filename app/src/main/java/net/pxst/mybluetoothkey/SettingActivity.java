@@ -13,20 +13,12 @@ import java.util.ArrayList;
 
 public class SettingActivity extends BlueToothActivity implements View.OnClickListener {
 
-    private MyApplication myApplication = null;
     private EditText userEdit;
     private EditText passEdit;
     private EditText devNameEdit;
     private EditText devMacEdit;
     private BluetoothDevicesAdapter adapter;
     private final ArrayList<BluetoothDevice> bluetoothDevices = new ArrayList<>();
-
-    @Override
-    protected void onStart() {
-        myApplication = (MyApplication) getApplication();
-        myApplication.setActivity(this);
-        super.onStart();
-    }
 
     @Override
     @SuppressLint("MissingPermission")
