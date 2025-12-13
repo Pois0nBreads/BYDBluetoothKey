@@ -40,6 +40,8 @@ public class UserPassDialog {
     }
 
     public void show() {
+        if (dialog.isShowing())
+            return;
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String user = userEdit.getText().toString();
@@ -61,7 +63,8 @@ public class UserPassDialog {
     }
 
     public void dismiss() {
-        dialog.dismiss();
+        if (dialog.isShowing())
+            dialog.dismiss();
     }
 
     public interface OnUserPassChangeListener {

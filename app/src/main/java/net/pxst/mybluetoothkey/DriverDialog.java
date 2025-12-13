@@ -62,12 +62,15 @@ public class DriverDialog implements View.OnTouchListener {
                 .create();
     }
 
-    public void show() {
-        dialog.show();
+    public void dismiss() {
+        if (dialog.isShowing())
+            dialog.dismiss();
     }
 
-    public void dismiss() {
-        dialog.dismiss();
+    public void show() {
+        if (dialog.isShowing())
+            return;
+        dialog.show();
     }
 
     @SuppressLint({"ClickableViewAccessibility", "NonConstantResourceId"})
