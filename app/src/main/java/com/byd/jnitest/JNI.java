@@ -6,12 +6,21 @@ public class JNI {
 
     private byte[] user, pass;
 
+    public JNI() {
+
+    }
+
     public JNI(byte[] user, byte[] pass) {
         this.user = user;
         this.pass = pass;
     }
 
     public JNI(String user, String pass) throws UnsupportedEncodingException {
+        this.user = user.getBytes(Utils.CODE_MAP_2132);
+        this.pass = pass.getBytes(Utils.CODE_MAP_2132);
+    }
+
+    public void setUserPass(String user, String pass) throws UnsupportedEncodingException {
         this.user = user.getBytes(Utils.CODE_MAP_2132);
         this.pass = pass.getBytes(Utils.CODE_MAP_2132);
     }

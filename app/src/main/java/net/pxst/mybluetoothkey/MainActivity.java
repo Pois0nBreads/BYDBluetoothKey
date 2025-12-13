@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -22,70 +23,115 @@ import java.lang.reflect.Method;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivity extends BlueToothActivity implements View.OnClickListener, View.OnTouchListener {
+public class MainActivity extends BlueToothActivity implements View.OnClickListener {
 
     private final static String TAG = "MainActivity";
 
     private JNI jni = null;
     private BluetoothDevice bluetoothDevice = null;
-    private CommThread commThread = null;
-
-    private final static int DRIVER_CODE_UP = 1;
-    private final static int DRIVER_CODE_LEFT = 2;
-    private final static int DRIVER_CODE_RIGHT = 3;
-    private final static int DRIVER_CODE_DOWN = 4;
-    private final static int DRIVER_CODE_NONE = 0;
-    private Button btn_up;
-    private Button btn_left;
-    private Button btn_right;
-    private Button btn_down;
-    private TextView driver_display;
-    private int driverCode = DRIVER_CODE_NONE;
-    private Timer driverTimer;
+    private final BleCommunicator commThread;
 
     private AlertDialog processDialog;
     private AlertDialog connectDialog;
-    private AlertDialog driverDialog;
-    private Toast retryToast;
+    private DriverDialog driverDialog;
+    private UserPassDialog userPassDialog;
     private Thread mBluetoothThread;
 
-    private String username;
-    private String password;
+    private TextView currutUserTT;
+
     private String macAddress;
     private String devName;
     private boolean isShowing = false;
 
-    @SuppressLint("ClickableViewAccessibility")
+    {
+        this.commThread = new BleCommunicator(() -> runOnUiThread(() -> {
+            connectDialog.dismiss();
+        }),() -> runOnUiThread(() -> {
+            if (isDestroyed())
+                return;
+            userPassDialog.dismiss();
+            processDialog.dismiss();
+            driverDialog.dismiss();
+            connectDialog.show();
+            Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
+        }));
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        jni = new JNI();
 
-        username = mSharedPreferences.getString(PREFERENCES_USERNAME, "");
-        password = mSharedPreferences.getString(PREFERENCES_PASSWORD, "");
-        macAddress = mSharedPreferences.getString(PREFERENCES_MAC_ADDRESS, "");
-        devName = mSharedPreferences.getString(PREFERENCES_DEV_NAME, "");
+        macAddress = mSharedPreferences.getString(MyApplication.PREFERENCES_MAC_ADDRESS, null);
+        devName = mSharedPreferences.getString(MyApplication.PREFERENCES_DEV_NAME, "NaN Name");
 
-        View view = getLayoutInflater().inflate(R.layout.dialog_driver, null);
-        btn_up = view.findViewById(R.id.btn_driver_up);
-        btn_left = view.findViewById(R.id.btn_driver_left);
-        btn_right = view.findViewById(R.id.btn_driver_right);
-        btn_down = view.findViewById(R.id.btn_driver_down);
-        driver_display = view.findViewById(R.id.btn_text_test);
-        btn_up.setOnTouchListener(this);
-        btn_left.setOnTouchListener(this);
-        btn_right.setOnTouchListener(this);
-        btn_down.setOnTouchListener(this);
+        initView();
+        initConnectThread();
+        setBleUserPass(mSharedPreferences.getString(MyApplication.PREFERENCES_USERNAME, ""),
+                mSharedPreferences.getString(MyApplication.PREFERENCES_PASSWORD, ""));
+    }
 
-        retryToast = Toast.makeText(myApplication, "连接超时,正在重试...", Toast.LENGTH_SHORT);
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add("aaa").setOnMenuItemClickListener(item -> false);
+        return super.onCreateOptionsMenu(menu);
+    }
 
-        driverDialog = new AlertDialog.Builder(this)
-                .setOnDismissListener(dialog -> driverBtnUp())
-                .setCancelable(false)
-                .setTitle("遥控驾驶")
-                .setNegativeButton("退出遥控驾驶", (dialog, which) -> dialog.dismiss())
-                .setView(view)
-                .create();
+    /**
+     * 设置蓝牙用户名密码
+     */
+    @SuppressLint("SetTextI18n")
+    private void setBleUserPass(String username, String password) {
+        try {
+            jni.setUserPass(username, password);
+            currutUserTT.setText("当前登录用户：" + username);
+        } catch (UnsupportedEncodingException e) {
+            Log.e(TAG, "UnsupportedEncodingException:" + e.getMessage());
+            finish();
+        }
+    }
+
+    /**
+     * 测试蓝牙用户名密码
+     */
+    private void testBleUserPass(String username, String password) {
+        if (!this.commThread.isRun()) {
+            Toast.makeText(myApplication, "蓝牙未连接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        processDialog.show();
+        byte[] cmd = null;
+        try {
+            cmd = jni.buildLoginRequest(username.getBytes(Utils.CODE_MAP_2132), password.getBytes(Utils.CODE_MAP_2132));
+        } catch (UnsupportedEncodingException e) {
+            processDialog.dismiss();
+            Toast.makeText(myApplication, "测试失败:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+        boolean sendState = commThread.sendData(cmd, (statusCode, errorCode) -> {
+            Log.d("MainActivity", "statusCode: " + Utils.byte2HEX((byte) statusCode));
+            Log.d("MainActivity", "errorCode: " + Utils.byte2HEX((byte) errorCode));
+            runOnUiThread(() -> {
+                String msg = BleCommunicator.getMessageByStatusCode(statusCode);
+                if (statusCode == BleCommunicator.STATE_ERR)
+                    msg += BleCommunicator.getMessageByErrorCode(errorCode);
+                Toast.makeText(myApplication, msg, Toast.LENGTH_SHORT).show();
+                processDialog.dismiss();
+            });
+        }, 3000);
+        if (!sendState) {
+            processDialog.dismiss();
+            Toast.makeText(myApplication, "命令发送失败", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * 初始化界面
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void initView() {
+        driverDialog = new DriverDialog(this, commThread, jni);
+        userPassDialog = new UserPassDialog(this, this::setBleUserPass, this::testBleUserPass);
 
         processDialog = new AlertDialog.Builder(this)
                 .setTitle("提示")
@@ -98,7 +144,10 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                 .setPositiveButton("退出程序", (dialog, which) -> finish())
                 .setCancelable(false)
                 .create();
-        connectDialog.show();
+
+        currutUserTT = findViewById(R.id.main_activity_user_tt);
+        findViewById(R.id.main_activity_change_user_btn).setOnClickListener(v -> userPassDialog.show());
+
         findViewById(R.id.lock_btn).setOnClickListener(this);
         findViewById(R.id.unlock_btn).setOnClickListener(this);
         findViewById(R.id.driver_btn).setOnLongClickListener(v -> {
@@ -123,49 +172,32 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                     .create().show();
             return true;
         });
-        try {
-            jni = new JNI(username, password);
-            initConnectThread();
-        } catch (UnsupportedEncodingException e) {
-            Log.e(TAG, "UnsupportedEncodingException:" + e.getMessage());
-            finish();
-        }
     }
 
+    /**
+     * 初始化蓝牙连接线程
+     */
     private void initConnectThread() {
-        mBluetoothThread = new Thread(() -> {
+        this.mBluetoothThread = new Thread(() -> {
             try {
                 //循环连接设备
+                Method method = BluetoothDevice.class.getMethod("createRfcommSocket", int.class);
                 do {
                     if (!this.isShowing)
                         continue;
-                    if (this.commThread != null && this.commThread.isRun()) {
-                        if (connectDialog.isShowing())
-                            runOnUiThread(() -> connectDialog.dismiss());
+                    if (this.commThread.isRun())
                         continue;
-                    }
-                    if (!connectDialog.isShowing()) {
-                        runOnUiThread(() -> {
-                            driverDialog.dismiss();
-                            processDialog.dismiss();
-                            connectDialog.show();
-                            Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
-                        });
-                    }
                     try {
-                        Method method = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
                         BluetoothSocket bluetoothSocket = (BluetoothSocket) method.invoke(bluetoothDevice, 1);
-                        retryToast.cancel();
-                        this.commThread = new CommThread(bluetoothSocket);
-                        this.commThread.start(); //这行忘写了
+                        this.commThread.start(bluetoothSocket); //这行忘写了
                     } catch (IOException e) {
-                        runOnUiThread(() -> retryToast.show());
+                        if (isDestroyed())
+                            return;
+                        runOnUiThread(() -> Toast.makeText(myApplication, "连接超时,正在重试...", Toast.LENGTH_SHORT).show());
                         Log.e(TAG, Thread.currentThread().getName() + ": 连接超时,正在重试...", e);
-//                        Thread.sleep(1000);
                     } finally {
                         if (isDestroyed()) {
-                            if (this.commThread != null)
-                                this.commThread.endRun();
+                            this.commThread.stop();
                             Log.i(TAG, Thread.currentThread().getName() + ": 程序已退出，结束不该有的commThread");
                         }
                     }
@@ -183,16 +215,20 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         });
     }
 
+    /**
+     * 获得蓝牙权限
+     */
     @Override
     @SuppressLint("MissingPermission")
     protected void hasPermission() {
         super.hasPermission();
         //第一次使用跳转到设置界面
-        if (mSharedPreferences.getBoolean(PREFERENCES_FIRST_USE, true)) {
+        if (macAddress == null) {
             startActivity(new Intent(this, SettingActivity.class));
             return;
         }
         bluetoothDevice = bluetoothAdapter.getRemoteDevice(macAddress);
+        connectDialog.show();
         if (bluetoothDevice.getBondState() == BluetoothDevice.BOND_NONE) {
             Toast.makeText(myApplication, "设备未配对", Toast.LENGTH_SHORT).show();
             new AlertDialog.Builder(this)
@@ -220,36 +256,33 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     @Override
     protected void onStart() {
-        super.onStart();
         isShowing = true;
+        super.onStart();
+    }
+
+    @Override
+    protected void onPause() {
+        driverDialog.dismiss();
+        super.onPause();
     }
 
     @Override
     protected void onStop() {
-        super.onStop();
         isShowing = false;
-        driverDialog.dismiss();
-        processDialog.dismiss();
-        connectDialog.show();
-        if (this.commThread != null)
-            commThread.endRun();
+        super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         Log.d(TAG, "onDestory");
-        driverDialog.dismiss();
-        processDialog.dismiss();
-        connectDialog.dismiss();
-        if (commThread != null)
-            commThread.endRun();
+        commThread.destory();
+        super.onDestroy();
     }
 
     @SuppressLint("NonConstantResourceId")
     @Override
     public void onClick(View v) {
-        if (this.commThread == null || !this.commThread.isRun()) {
+        if (!this.commThread.isRun()) {
             Toast.makeText(myApplication, "蓝牙未连接", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -272,142 +305,28 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                 cmd = jni.buildInvalidRequest();
                 break;
         }
-        boolean sendState = commThread.sendData(cmd, (statusCode, errorCode) -> {
-            Log.d("MainActivity", "statusCode: " + Utils.byte2HEX((byte) statusCode));
-            Log.d("MainActivity", "errorCode: " + Utils.byte2HEX((byte) errorCode));
-            runOnUiThread(() -> {
-                String msg = CommThread.getMessageByStatusCode(statusCode);
-                if (statusCode == CommThread.STATE_ERR)
-                    msg += CommThread.getMessageByErrorCode(errorCode);
-                Toast.makeText(myApplication, msg, Toast.LENGTH_SHORT).show();
-                processDialog.dismiss();
-            });
-        }, 3000);
-        if (!sendState) {
-            processDialog.dismiss();
-            Toast.makeText(myApplication, "发送失败", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    @SuppressLint({"ClickableViewAccessibility", "NonConstantResourceId"})
-    @Override
-    public boolean onTouch(View v, MotionEvent event) {
-        boolean flag = v.performClick();
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                if (this.commThread == null || !this.commThread.isRun()) {
-                    Toast.makeText(myApplication, "蓝牙未连接", Toast.LENGTH_SHORT).show();
-                    return flag;
-                }
-                Log.i("onTrouchEvent", "ACTION_DOWN");
-                switch (v.getId()) {
-                    case R.id.btn_driver_up:
-                        btn_left.setEnabled(false);
-                        btn_right.setEnabled(false);
-                        btn_down.setEnabled(false);
-                        driverCode = DRIVER_CODE_UP;
-                        break;
-                    case R.id.btn_driver_left:
-                        btn_up.setEnabled(false);
-                        btn_right.setEnabled(false);
-                        btn_down.setEnabled(false);
-                        driverCode = DRIVER_CODE_LEFT;
-                        break;
-                    case R.id.btn_driver_right:
-                        btn_up.setEnabled(false);
-                        btn_left.setEnabled(false);
-                        btn_down.setEnabled(false);
-                        driverCode = DRIVER_CODE_RIGHT;
-                        break;
-                    case R.id.btn_driver_down:
-                        btn_up.setEnabled(false);
-                        btn_left.setEnabled(false);
-                        btn_right.setEnabled(false);
-                        driverCode = DRIVER_CODE_DOWN;
-                        break;
-                    default:
-                        driverCode = DRIVER_CODE_NONE;
-                        break;
-                }
-                driverBtnDown();
-                break;
-            case MotionEvent.ACTION_UP:
-                driverBtnUp();
-                Log.i("onTrouchEvent", "ACTION_UP");
-                break;
-            case MotionEvent.ACTION_CANCEL:
-                driverBtnUp();
-                Log.i("onTrouchEvent", "ACTION_CANCEL");
-                return true;
-        }
-        return flag;
-    }
-
-    private void setDriverDisplay(int pos) {
-        String disText;
-        switch (driverCode) {
-            case DRIVER_CODE_UP:
-                disText = "正在前进 - " + pos;
-                break;
-            case DRIVER_CODE_LEFT:
-                disText = "正在左转 - " + pos;
-                break;
-            case DRIVER_CODE_RIGHT:
-                disText = "正在右转 - " + pos;
-                break;
-            case DRIVER_CODE_DOWN:
-                disText = "正在后退 - " + pos;
-                break;
-            default:
-                disText = "待机中";
-                break;
-        }
-        driver_display.setText(disText);
-        Log.i("RemoteDriving", disText);
-    }
-
-    private void driverBtnDown() {
-        driverTimer = new Timer();
-        driverTimer.schedule(new TimerTask() {
-            int pos = 0;
-
+        new Thread() {
             @Override
             public void run() {
-                pos++;
-                byte[] CMD;
-                switch (driverCode) {
-                    case DRIVER_CODE_UP:
-                        CMD = jni.forwardRequest();
-                        break;
-                    case DRIVER_CODE_LEFT:
-                        CMD = jni.turnLeftRequest();
-                        break;
-                    case DRIVER_CODE_RIGHT:
-                        CMD = jni.turnRightRequest();
-                        break;
-                    case DRIVER_CODE_DOWN:
-                        CMD = jni.drawBackdRequest();
-                        break;
-                    default:
-                        return;
+                boolean sendState = commThread.sendData(cmd, (statusCode, errorCode) -> {
+                    Log.d("MainActivity", "statusCode: " + Utils.byte2HEX((byte) statusCode));
+                    Log.d("MainActivity", "errorCode: " + Utils.byte2HEX((byte) errorCode));
+                    runOnUiThread(() -> {
+                        String msg = BleCommunicator.getMessageByStatusCode(statusCode);
+                        if (statusCode == BleCommunicator.STATE_ERR)
+                            msg += BleCommunicator.getMessageByErrorCode(errorCode);
+                        Toast.makeText(myApplication, msg, Toast.LENGTH_SHORT).show();
+                        processDialog.dismiss();
+                    });
+                }, 3000);
+                if (!sendState) {
+                    runOnUiThread(() -> {
+                        processDialog.dismiss();
+                        Toast.makeText(myApplication, "发送失败", Toast.LENGTH_SHORT).show();
+                    });
                 }
-                commThread.sendData(CMD, (resultCode, errorCode) -> {
-                }, 0);
-                runOnUiThread(() -> setDriverDisplay(pos));
             }
-        }, 0, 100);
+        }.start();
     }
 
-    private void driverBtnUp() {
-        if (driverTimer == null)
-            return;
-        driverTimer.cancel();
-        driverTimer = null;
-        driverCode = DRIVER_CODE_NONE;
-        this.btn_up.setEnabled(true);
-        this.btn_left.setEnabled(true);
-        this.btn_right.setEnabled(true);
-        this.btn_down.setEnabled(true);
-        setDriverDisplay(0);
-    }
 }

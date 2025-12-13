@@ -18,12 +18,6 @@ import androidx.core.app.ActivityCompat;
 public class BlueToothActivity extends Activity {
 
     protected static final int REQUEST_BLUETOOTH_PERMISSIONS = 1;
-    protected static final String PREFERENCES_SETTINGS = "settings";
-    protected static final String PREFERENCES_USERNAME = "username";
-    protected static final String PREFERENCES_PASSWORD = "password";
-    protected static final String PREFERENCES_MAC_ADDRESS = "address";
-    protected static final String PREFERENCES_DEV_NAME = "dev_name";
-    protected static final String PREFERENCES_FIRST_USE = "first_use";
 
     protected static String[] PERMISSION_LIST;
     protected MyApplication myApplication = null;
@@ -55,7 +49,7 @@ public class BlueToothActivity extends Activity {
         super.onCreate(savedInstanceState);
         myApplication = (MyApplication) getApplication();
         myApplication.setActivity(this);
-        mSharedPreferences = getSharedPreferences(PREFERENCES_SETTINGS, MODE_PRIVATE);
+        mSharedPreferences = getSharedPreferences(MyApplication.PREFERENCES_SETTINGS, MODE_PRIVATE);
     }
 
     @Override
