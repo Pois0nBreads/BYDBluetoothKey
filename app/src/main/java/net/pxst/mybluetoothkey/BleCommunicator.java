@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothSocket;
 import android.util.Log;
 
+import com.byd.jnitest.JNI;
 import com.byd.jnitest.Utils;
 
 import java.io.IOException;
@@ -16,20 +17,29 @@ public class BleCommunicator {
 
     private final static String TAG = "BleCommunicator";
 
-    public final static int RESULT_START_FLAG = 0x5A;
-    public final static int STATE_TIMEOUT = 0xF0;
-    public final static int STATE_THREAD_END = 0xF1;
-    public final static int STATE_RETRY = 0x00;
-    public final static int STATE_OK = 0x01;
-    public final static int STATE_ERR = 0x02;
+    public final static int RESULT_START_FLAG = 0x5A; //字节起始
 
-    public final static int ERR_RETRY = 0x00;
-    public final static int ERR_LOGIN_FAILED = 0x01;
-    public final static int ERR_NOT_OFF = 0x02;
-    public final static int ERR_NO_USER = 0x03;
-    public final static int ERR_I_KEY_SAVE_FAILED = 0x04;
-    public final static int ERR_CAN_AUTH_BUSY = 0x05;
-    public final static int ERR_I_KEY_BUSY = 0x06;
+    public final static int STATE_TIMEOUT = 0xF0; //超时状态
+    public final static int STATE_THREAD_END = 0xF1; //蓝牙线程结束状态
+    public final static int STATE_DETECT_KEY = 0xF2; //检测钥匙状态
+    public final static int STATE_RETRY = 0x00; //请重试
+    public final static int STATE_OK = 0x01; //成功状态
+    public final static int STATE_ERR = 0x02; //错误状态
+
+    public final static int KEY_CODE_NEW_KEY = 0x01; //新钥匙
+    public final static int KEY_CODE_VALID_KEY = 0x02; //有效钥匙
+    public final static int KEY_CODE_INVALID_KEY = 0x03; //无效钥匙
+    public final static int KEY_CODE_NEW_KEY_IN_DETECT = 0x05; //新匹配钥匙，未离开读卡器区域
+    public final static int KEY_CODE_NO_DETECT_KEY = 0x06; //钥匙未靠近读卡器区域
+    public final static int KEY_CODE_UNIT_KEY = 0x07; //初始钥匙
+
+    public final static int ERR_RETRY = 0x00; //错误码请重试
+    public final static int ERR_LOGIN_FAILED = 0x01; //错误码登陆失败
+    public final static int ERR_NOT_OFF = 0x02; //错误码未熄火
+    public final static int ERR_NO_USER = 0x03; //错误码没有该用户
+    public final static int ERR_I_KEY_SAVE_FAILED = 0x04; //错误码IKey 保存失败
+    public final static int ERR_CAN_AUTH_BUSY = 0x05; //错误码 CAN总线忙
+    public final static int ERR_I_KEY_BUSY = 0x06; //错误码 iKey系统忙
 
     private final Object lock = new Object();
     private BluetoothSocket mBluetoothSocket;
@@ -37,31 +47,30 @@ public class BleCommunicator {
     private CommCallback mCommCallback;
     private final OnConnectListener onConnectListener;
     private final OnDisConnectListener onDisConnectListener;
-    private Timer timer;
+    private Timer commTimer;
     private OutputStream mOutputStream;
-    private InputStream mIutputStream;
-    private boolean isDestoryed = false;
+    private InputStream mInputStream;
+
+    private Timer registerTimer;
+    private boolean isDestroyed = false;
+    private boolean inRegisterMode = false;
+    private RegisterEventListener registerEventListener;
+
+    private final JNI jni = new JNI();
 
     public BleCommunicator(OnConnectListener onConnectListener, OnDisConnectListener onDisConnectListener) {
         this.onConnectListener = onConnectListener;
         this.onDisConnectListener = onDisConnectListener;
-        startRevThread();
-    }
-
-    /**
-     * 数据接收处理函数
-     */
-    private void startRevThread() {
         new Thread() {
             @Override
             public void run() {
                 byte[] data = new byte[18];
-                while (!isDestoryed) {
+                while (!isDestroyed) {
                     while (isRun) {
                         try {
-                            if (mIutputStream.read() == RESULT_START_FLAG) {
+                            if (mInputStream.read() == RESULT_START_FLAG) {
                                 for (int i = 0; i < 18; i++) {
-                                    data[i] = (byte) mIutputStream.read();
+                                    data[i] = (byte) mInputStream.read();
                                 }
                                 Log.d(TAG, "RecvData: " + Utils.bytes2HEX(data));
                                 if ((data[16] & 0xFF) == 0xF5 && (data[17] & 0xFF) == 0xFA) {
@@ -69,10 +78,16 @@ public class BleCommunicator {
                                         int resultCode = (data[7] & 0xFF);
                                         int errorCode = (data[8] & 0xFF);
                                         if (mCommCallback != null) {
-                                            timer.cancel(); //取消超时任务
+                                            commTimer.cancel(); //取消超时任务
                                             mCommCallback.onData(resultCode & 3, errorCode & 15);
                                             mCommCallback = null;
                                         }
+                                    }
+                                    if (((data[2] & 0xFF) | ((data[1] & 0xFF) << 8)) == 384) {
+                                        byte code = (byte) (data[5] & 0xFF);
+                                        code = (byte) ((code >> 3) & 7);
+                                        if (code >= 1 && registerEventListener != null)
+                                            registerEventListener.onEvent(code);
                                     }
                                 }
                             }
@@ -87,34 +102,87 @@ public class BleCommunicator {
         }.start();
     }
 
-    private void onStop() {
-        synchronized (lock) {
+    private boolean isInRegisterMode() {
+        return inRegisterMode;
+    }
+
+    synchronized public boolean enterRegisterMode(RegisterEventListener eventListener) {
+        if (!isRun)
+            return false;
+        if (inRegisterMode)
+            return false;
+        this.registerEventListener = eventListener;
+        //取消普通发送的事件 和 计时器
+        commTimer.cancel();
+        if (mCommCallback != null) {
+            mCommCallback.onData(STATE_TIMEOUT, STATE_TIMEOUT);
+            mCommCallback = null;
+        }
+        inRegisterMode = true;
+        registerTimer = new Timer();
+        registerTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    mOutputStream.write(jni.buildRegisterRequest());
+                    mOutputStream.flush();
+                } catch (IOException e) {
+                    Log.e(TAG, "sendRegisterRequest Failed", e);
+                }
+            }
+        }, 0, 3000);
+        return true;
+    }
+
+    synchronized public boolean leaveRegisterMode() {
+        if (!isRun)
+            return false;
+        if (!inRegisterMode)
+            return false;
+        this.registerEventListener = null;
+        inRegisterMode = false;
+        registerTimer.cancel();
+        commTimer.cancel();
+        mCommCallback = null;
+        try {
+            mOutputStream.write(jni.buildExitRegister());
+            mOutputStream.flush();
+        } catch (IOException e) {
+            Log.e(TAG, "leaveRegisterMode Failed", e);
+        }
+        return true;
+    }
+
+    public boolean sendRegisterInfo(String user, String pass, CommCallback callback) {
+        synchronized (this) {
             if (!isRun)
-                return;
-            isRun = false;
-            Log.i(TAG, "onStop!");
-            if (mCommCallback != null) {
-                timer.cancel();
-                mCommCallback.onData(STATE_THREAD_END, STATE_THREAD_END);
+                return false;
+            if (!inRegisterMode)
+                return false;
+        }
+        registerTimer.cancel();
+        commTimer = new Timer();
+        commTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (mCommCallback != null)
+                    mCommCallback.onData(STATE_TIMEOUT, STATE_TIMEOUT);
                 mCommCallback = null;
             }
-            try {
-                mOutputStream.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            try {
-                mIutputStream.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            try {
-                mBluetoothSocket.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        }, 3000);
+        this.mCommCallback = (resultCode, exCode) -> {
+            leaveRegisterMode();
+            callback.onData(resultCode, exCode);
+        };
+        try {
+            final byte[] cmd = jni.buildRegisterInfo(user.getBytes(Utils.CODE_MAP_2132), pass.getBytes(Utils.CODE_MAP_2132));
+            mOutputStream.write(cmd);
+            mOutputStream.flush();
+        } catch (Exception e) {
+            Log.e(TAG, "Send buildRegisterInfo Error", e);
+            return false;
         }
-        onDisConnectListener.onDisConnect();
+        return true;
     }
 
     /**
@@ -126,7 +194,7 @@ public class BleCommunicator {
      * @return 是否发送数据
      */
     synchronized public boolean sendData(byte[] data, CommCallback callback, int timeout) {
-        if (!mBluetoothSocket.isConnected() || !isRun)
+        if (inRegisterMode || !isRun)
             return false;
         if (callback == null)
             return false;
@@ -134,8 +202,8 @@ public class BleCommunicator {
             return false;
         mCommCallback = callback;
         //创建超时任务
-        timer = new Timer();
-        timer.schedule(new TimerTask() {
+        commTimer = new Timer();
+        commTimer.schedule(new TimerTask() {
             @Override
             public void run() {
                 mCommCallback.onData(STATE_TIMEOUT, STATE_TIMEOUT);
@@ -148,7 +216,7 @@ public class BleCommunicator {
             mOutputStream.flush();
         } catch (IOException e) {
             e.printStackTrace();
-            timer.cancel();
+            commTimer.cancel();
             mCommCallback = null;
             return false;
         }
@@ -157,14 +225,15 @@ public class BleCommunicator {
 
     @SuppressLint("MissingPermission")
     synchronized public void start(BluetoothSocket bluetoothSocket) throws IOException {
-        if (isDestoryed)
+        if (isDestroyed)
             return;
         if (isRun)
             return;
         this.mBluetoothSocket = bluetoothSocket;
         this.mBluetoothSocket.connect();
         this.mOutputStream = mBluetoothSocket.getOutputStream();
-        this.mIutputStream = mBluetoothSocket.getInputStream();
+        this.mInputStream = mBluetoothSocket.getInputStream();
+        inRegisterMode = false;
         isRun = true;
         Log.i(TAG, "start!");
         if (onConnectListener != null)
@@ -175,7 +244,7 @@ public class BleCommunicator {
      * 结束运行
      */
     synchronized public void stop() {
-        if (isDestoryed)
+        if (isDestroyed)
             return;
         if (!isRun)
             return;
@@ -183,10 +252,42 @@ public class BleCommunicator {
         Log.i(TAG, "stop!");
     }
 
+    private void onStop() {
+        synchronized (lock) {
+            if (!isRun)
+                return;
+            isRun = false;
+            Log.i(TAG, "onStop!");
+            registerTimer.cancel();
+            this.registerEventListener = null;
+            if (mCommCallback != null) {
+                commTimer.cancel();
+                mCommCallback.onData(STATE_THREAD_END, STATE_THREAD_END);
+                mCommCallback = null;
+            }
+            try {
+                mOutputStream.close();
+            } catch (Exception e) {
+                Log.e(TAG, "onStop mOutputStream.close() Error", e);
+            }
+            try {
+                mInputStream.close();
+            } catch (Exception e) {
+                Log.e(TAG, "onStop mInputStream.close() Error", e);
+            }
+            try {
+                mBluetoothSocket.close();
+            } catch (Exception e) {
+                Log.e(TAG, "onStop mBluetoothSocket.close() Error", e);
+            }
+        }
+        onDisConnectListener.onDisConnect();
+    }
+
     synchronized public void destroy() {
-        if (isDestoryed)
+        if (isDestroyed)
             return;
-        isDestoryed = true;
+        isDestroyed = true;
         this.onStop();
         Log.i(TAG, "destroy!");
     }
@@ -242,7 +343,11 @@ public class BleCommunicator {
      * 回调接口
      */
     public interface CommCallback {
-        void onData(int resultCode, int errorCode);
+        void onData(int resultCode, int errCode);
+    }
+
+    public interface RegisterEventListener {
+        void onEvent(int statusCode);
     }
 
     public interface OnConnectListener {
