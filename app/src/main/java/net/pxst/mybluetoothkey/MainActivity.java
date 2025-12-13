@@ -33,6 +33,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private UserPassDialog userPassDialog;
     private RegisterDialog registerDialog;
     private ChangeBtNameDialog changeBtNameDialog;
+    private ChangeBtPinDialog changeBtPinDialog;
 
     private Thread mBluetoothThread;
     private Intent settingIntent;
@@ -54,6 +55,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             driverDialog.dismiss();
             registerDialog.dismiss();
             changeBtNameDialog.dismiss();
+            changeBtPinDialog.dismiss();
             connectDialog.show();
             Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
         }));
@@ -87,6 +89,10 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         });
         menu.add("修改车辆蓝牙名称").setOnMenuItemClickListener(item -> {
             changeBtNameDialog.show();
+            return false;
+        });
+        menu.add("修改车辆蓝牙PIN").setOnMenuItemClickListener(item -> {
+            changeBtPinDialog.dismiss();
             return false;
         });
         return super.onCreateOptionsMenu(menu);
@@ -148,6 +154,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         userPassDialog = new UserPassDialog(this, this::setBleUserPass, this::testBleUserPass);
         registerDialog = new RegisterDialog(this, commThread, this::setBleUserPass);
         changeBtNameDialog = new ChangeBtNameDialog(this, commThread, jni);
+        changeBtPinDialog = new ChangeBtPinDialog(this, commThread, jni);
 
         processDialog = new AlertDialog.Builder(this)
                 .setTitle("提示")
@@ -283,6 +290,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         userPassDialog.dismiss();
         registerDialog.dismiss();
         changeBtNameDialog.dismiss();
+        changeBtPinDialog.dismiss();
         super.onPause();
     }
 
