@@ -47,11 +47,11 @@ public class BleCommunicator {
     private CommCallback mCommCallback;
     private final OnConnectListener onConnectListener;
     private final OnDisConnectListener onDisConnectListener;
-    private Timer commTimer;
+    private Timer commTimer = new Timer();
     private OutputStream mOutputStream;
     private InputStream mInputStream;
 
-    private Timer registerTimer;
+    private Timer registerTimer = new Timer();
     private boolean isDestroyed = false;
     private boolean inRegisterMode = false;
     private RegisterEventListener registerEventListener;
