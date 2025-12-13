@@ -72,20 +72,22 @@ public class BleCommunicator {
                                 for (int i = 0; i < 18; i++) {
                                     data[i] = (byte) mInputStream.read();
                                 }
-                                Log.d(TAG, "RecvData: " + Utils.bytes2HEX(data));
                                 if ((data[16] & 0xFF) == 0xF5 && (data[17] & 0xFF) == 0xFA) {
-                                    if (((data[2] & 0xFF) | ((data[1] & 0xFF) << 8)) == 665) {
+                                    int dataFlag = (data[2] & 0xFF) | ((data[1] & 0xFF) << 8);
+                                    if (dataFlag == 665) {
                                         int resultCode = (data[7] & 0xFF);
                                         int errorCode = (data[8] & 0xFF);
+                                        Log.d(TAG, "ResultCode: " + resultCode + " ErrorCode: " + errorCode);
                                         if (mCommCallback != null) {
                                             commTimer.cancel(); //取消超时任务
                                             mCommCallback.onData(resultCode & 3, errorCode & 15);
                                             mCommCallback = null;
                                         }
                                     }
-                                    if (((data[2] & 0xFF) | ((data[1] & 0xFF) << 8)) == 384) {
+                                    if (dataFlag == 384) {
                                         byte code = (byte) (data[5] & 0xFF);
                                         code = (byte) ((code >> 3) & 7);
+                                        Log.d(TAG, "RegisterEventCode " + code);
                                         if (code >= 1 && registerEventListener != null)
                                             registerEventListener.onEvent(code);
                                     }
