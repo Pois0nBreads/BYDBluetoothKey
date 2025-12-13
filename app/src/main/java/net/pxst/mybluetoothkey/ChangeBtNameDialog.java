@@ -2,6 +2,7 @@ package net.pxst.mybluetoothkey;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ProgressBar;
@@ -9,8 +10,13 @@ import android.widget.Toast;
 
 import com.byd.jnitest.JNI;
 import com.byd.jnitest.StringMap;
+import com.byd.jnitest.Utils;
+
+import java.io.UnsupportedEncodingException;
 
 public class ChangeBtNameDialog {
+
+    private final static String TAG = "ChangeBtNameDialog";
 
     private final AlertDialog dialog, loadingDialog;
     private final Activity activity;
@@ -41,6 +47,7 @@ public class ChangeBtNameDialog {
         if (dialog.isShowing())
             return;
         dialog.show();
+        nameEdit.setText("");
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = nameEdit.getText().toString();
             if (name.isEmpty()) {
@@ -62,23 +69,28 @@ public class ChangeBtNameDialog {
                         return;
                     }
                     //修改蓝牙名称
-                    commThread.sendData(jni.buildLoginRequest(), (resultCode1, errCode1) -> {
-                        if (resultCode1 != BleCommunicator.STATE_OK) {
+                    try {
+                        commThread.sendData(jni.changeBtNameRequest(name.getBytes(Utils.CODE_MAP_UTF_8)), (resultCode1, errCode1) -> {
+                            if (resultCode1 != BleCommunicator.STATE_OK) {
+                                activity.runOnUiThread(() -> {
+                                    String msg = BleCommunicator.getMessageByStatusCode(resultCode1);
+                                    if (resultCode1 == BleCommunicator.STATE_ERR)
+                                        msg += BleCommunicator.getMessageByErrorCode(errCode1);
+                                    Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show();
+                                    loadingDialog.dismiss();
+                                });
+                                return;
+                            }
                             activity.runOnUiThread(() -> {
-                                String msg = BleCommunicator.getMessageByStatusCode(resultCode1);
-                                if (resultCode1 == BleCommunicator.STATE_ERR)
-                                    msg += BleCommunicator.getMessageByErrorCode(errCode1);
-                                Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show();
+                                Toast.makeText(activity, "设置成功,蓝牙可能需要重新配对", Toast.LENGTH_SHORT).show();
                                 loadingDialog.dismiss();
+                                dialog.dismiss();
                             });
-                            return;
-                        }
-                        activity.runOnUiThread(() -> {
-                            Toast.makeText(activity, "设置成功,蓝牙可能需要重新配对", Toast.LENGTH_SHORT).show();
-                            loadingDialog.dismiss();
-                            dialog.dismiss();
-                        });
-                    }, 3000);
+                        }, 3000);
+                    } catch (UnsupportedEncodingException e) {
+                        Log.e(TAG, "UnsupportedEncodingException", e);
+                        dismiss();
+                    }
                 }, 3000)).start();
             }
         });
