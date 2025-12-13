@@ -58,11 +58,11 @@
         android:orientation="horizontal">
 
         <Button
-            android:id="@+id/setting_reflush_btn"
+            android:id="@+id/setting_bond_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/reflush_btn_label"
+            android:text="@string/bond_btn_label"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
         <Button

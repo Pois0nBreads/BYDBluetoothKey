@@ -8,9 +8,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
-import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,8 +18,6 @@ import com.byd.jnitest.Utils;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class MainActivity extends BlueToothActivity implements View.OnClickListener {
 
@@ -36,6 +32,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private DriverDialog driverDialog;
     private UserPassDialog userPassDialog;
     private Thread mBluetoothThread;
+    private Intent settingIntent;
 
     private TextView currutUserTT;
 
@@ -61,7 +58,8 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        jni = new JNI();
+        settingIntent = new Intent(this, SettingActivity.class);
+        settingIntent.putExtra(MyApplication.INTENT_FROM_WHAT, MyApplication.INTENT_FROM_MAIN);
 
         macAddress = mSharedPreferences.getString(MyApplication.PREFERENCES_MAC_ADDRESS, null);
         devName = mSharedPreferences.getString(MyApplication.PREFERENCES_DEV_NAME, "NaN Name");
@@ -74,7 +72,14 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add("aaa").setOnMenuItemClickListener(item -> false);
+        menu.add("切换蓝牙设备").setOnMenuItemClickListener(item -> {
+            startActivity(settingIntent);
+            return false;
+        });
+        menu.add("切换蓝牙设备").setOnMenuItemClickListener(item -> {
+            startActivity(settingIntent);
+            return false;
+        });
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -142,6 +147,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                 .setTitle("提示")
                 .setMessage("正在连接设备...\n设备名称:" + devName + "\n设备地址:" + macAddress)
                 .setPositiveButton("退出程序", (dialog, which) -> finish())
+                .setNeutralButton("切换蓝牙设备", (dialog, which) -> startActivity(settingIntent))
                 .setCancelable(false)
                 .create();
 
@@ -224,7 +230,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         super.hasPermission();
         //第一次使用跳转到设置界面
         if (macAddress == null) {
-            startActivity(new Intent(this, SettingActivity.class));
+            startActivity(settingIntent);
             return;
         }
         bluetoothDevice = bluetoothAdapter.getRemoteDevice(macAddress);

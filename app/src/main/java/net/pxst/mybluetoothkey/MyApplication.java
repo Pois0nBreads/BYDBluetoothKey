@@ -11,6 +11,9 @@ public class MyApplication extends Application {
     protected static final String PREFERENCES_MAC_ADDRESS = "address";
     protected static final String PREFERENCES_DEV_NAME = "dev_name";
     protected static final String PREFERENCES_FIRST_USE = "first_use";
+    protected static final String INTENT_FROM_WHAT = "from_what";
+    protected static final int INTENT_FROM_NONE = 0;
+    protected static final int INTENT_FROM_MAIN = 1;
     private Activity mActivity = null;
 
     static {

@@ -2,6 +2,7 @@ package net.pxst.mybluetoothkey;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
@@ -10,6 +11,7 @@ import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class SettingActivity extends BlueToothActivity implements View.OnClickListener {
 
@@ -17,14 +19,17 @@ public class SettingActivity extends BlueToothActivity implements View.OnClickLi
     private EditText devMacEdit;
     private BluetoothDevicesAdapter adapter;
     private final ArrayList<BluetoothDevice> bluetoothDevices = new ArrayList<>();
+    private int fromWhat = MyApplication.INTENT_FROM_NONE;
 
     @Override
     @SuppressLint("MissingPermission")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_setting);
+        Objects.requireNonNull(getActionBar()).setTitle("蓝牙设备选择");
+        fromWhat = getIntent().getIntExtra(MyApplication.INTENT_FROM_WHAT, MyApplication.INTENT_FROM_NONE);
         findViewById(R.id.setting_save_btn).setOnClickListener(this);
-        findViewById(R.id.setting_reflush_btn).setOnClickListener(this);
+        findViewById(R.id.setting_bond_btn).setOnClickListener(this);
 
         devNameEdit = findViewById(R.id.setting_dev_name_et);
         devMacEdit = findViewById(R.id.setting_dev_mac_et);
@@ -42,21 +47,34 @@ public class SettingActivity extends BlueToothActivity implements View.OnClickLi
     }
 
     @Override
+    protected void onResume() {
+        getBondBleList();
+        super.onResume();
+    }
+
+    @Override
     protected void hasPermission() {
         super.hasPermission();
-        getBondBLElist();
+        getBondBleList();
     }
 
     @SuppressLint("MissingPermission")
-    private void getBondBLElist() {
+    private void getBondBleList() {
         bluetoothDevices.clear();
         bluetoothDevices.addAll(bluetoothAdapter.getBondedDevices());
         adapter.notifyDataSetChanged();
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    public void onBackPressed() {
+        super.onBackPressed();
+        switch (fromWhat) {
+            case MyApplication.INTENT_FROM_NONE:
+                break;
+            case MyApplication.INTENT_FROM_MAIN:
+                startActivity(new Intent(this, MainActivity.class));
+                break;
+        }
     }
 
     @SuppressLint("NonConstantResourceId")
@@ -77,8 +95,8 @@ public class SettingActivity extends BlueToothActivity implements View.OnClickLi
                         .apply();
                 Toast.makeText(myApplication, "保存成功！", Toast.LENGTH_SHORT).show();
                 break;
-            case R.id.setting_reflush_btn:
-                getBondBLElist();
+            case R.id.setting_bond_btn:
+                startActivity(new Intent("android.settings.BLUETOOTH_SETTINGS"));
                 break;
         }
     }
