@@ -92,7 +92,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             return false;
         });
         menu.add("修改车辆蓝牙PIN").setOnMenuItemClickListener(item -> {
-            changeBtPinDialog.dismiss();
+            changeBtPinDialog.show();
             return false;
         });
         return super.onCreateOptionsMenu(menu);

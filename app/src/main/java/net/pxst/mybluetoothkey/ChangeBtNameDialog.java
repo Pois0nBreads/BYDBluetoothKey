@@ -40,6 +40,7 @@ public class ChangeBtNameDialog {
                 .setView(view)
                 .setTitle("修改车辆蓝牙名称")
                 .setPositiveButton("提交", null)
+                .setNegativeButton("取消", null)
                 .create();
     }
 

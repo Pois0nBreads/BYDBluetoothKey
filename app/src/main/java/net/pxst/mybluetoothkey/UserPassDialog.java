@@ -35,6 +35,7 @@ public class UserPassDialog {
                 .setView(view)
                 .setTitle("修改登录用户名密码")
                 .setPositiveButton("保存", null)
+                .setNegativeButton("取消", null)
                 .setNeutralButton("测试用户名密码", null)
                 .create();
     }

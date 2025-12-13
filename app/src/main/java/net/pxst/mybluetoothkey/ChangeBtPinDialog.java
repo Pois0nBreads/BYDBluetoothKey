@@ -40,6 +40,7 @@ public class ChangeBtPinDialog {
                 .setView(view)
                 .setTitle("修改车辆蓝牙PIN")
                 .setPositiveButton("提交", null)
+                .setNegativeButton("取消", null)
                 .create();
     }
 
