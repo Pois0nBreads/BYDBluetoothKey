@@ -4,7 +4,10 @@
         <item name="android:colorPrimary">#025E83</item>
         <item name="android:colorPrimaryDark">#024864</item>
         <item name="android:actionBarStyle">@style/CustomActionBar</item>
+        <!-- 设置 ActionBar 菜单项文字外观 -->
+        <item name="android:actionMenuTextAppearance">@style/MyActionMenuTextAppearance</item>
     </style>
+
     <!-- 自定义 ActionBar 样式 -->
     <style name="CustomActionBar" parent="@android:style/Widget.Material.Light.ActionBar">
         <!-- 设置标题文字样式 -->
@@ -12,9 +15,15 @@
         <!-- 可以同时设置背景色 -->
         <item name="android:background">#025E83</item>
     </style>
+
     <!-- 自定义标题文字样式 -->
     <style name="CustomTitleTextStyle" parent="@android:style/TextAppearance.Material.Widget.ActionBar.Title">
         <!-- 单独设置标题文字颜色 -->
+        <item name="android:textColor">#E7E7E7</item>
+    </style>
+
+    <!-- ActionBar 菜单项文字样式 -->
+    <style name="MyActionMenuTextAppearance" parent="@android:style/TextAppearance.Material.Widget.ActionBar.Menu">
         <item name="android:textColor">#E7E7E7</item>
     </style>
 </resources>

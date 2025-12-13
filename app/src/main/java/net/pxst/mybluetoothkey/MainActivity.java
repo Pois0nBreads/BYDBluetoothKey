@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -79,6 +80,12 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add("点击右侧查看更多功能 ->")
+                .setOnMenuItemClickListener(item -> {
+                    Toast.makeText(this, "Ciallo～(∠・ω< )⌒☆", Toast.LENGTH_SHORT).show();
+                    return false;
+                })
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         menu.add("切换蓝牙设备").setOnMenuItemClickListener(item -> {
             startActivity(settingIntent);
             return false;
