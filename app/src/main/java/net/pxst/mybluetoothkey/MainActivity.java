@@ -19,6 +19,8 @@ import com.byd.jnitest.Utils;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends BlueToothActivity implements View.OnClickListener {
 
@@ -37,6 +39,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private ChangeBtPinDialog changeBtPinDialog;
 
     private Thread mBluetoothThread;
+    private Timer onStopTimer = new Timer();
     private Intent settingIntent;
 
     private TextView currutUserTT;
@@ -288,6 +291,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     @Override
     protected void onStart() {
         isShowing = true;
+        onStopTimer.cancel();
         super.onStart();
     }
 
@@ -304,6 +308,13 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     @Override
     protected void onStop() {
         isShowing = false;
+        onStopTimer = new Timer();
+        onStopTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                commThread.stop();
+            }
+        }, 3 * 60 * 1000);
         super.onStop();
     }
 
