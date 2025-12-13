@@ -31,6 +31,7 @@ public class BleCommunicator {
     public final static int ERR_CAN_AUTH_BUSY = 0x05;
     public final static int ERR_I_KEY_BUSY = 0x06;
 
+    private final Object lock = new Object();
     private BluetoothSocket mBluetoothSocket;
     private boolean isRun = false;
     private CommCallback mCommCallback;
@@ -58,12 +59,6 @@ public class BleCommunicator {
                 while (!isDestoryed) {
                     while (isRun) {
                         try {
-                            if (!mBluetoothSocket.isConnected()) {
-                                onDisConnectListener.onDisConnect();
-                                BleCommunicator.this.stop();
-                                Log.i(TAG, "RevThread Stopped!");
-                                break;
-                            }
                             if (mIutputStream.read() == RESULT_START_FLAG) {
                                 for (int i = 0; i < 18; i++) {
                                     data[i] = (byte) mIutputStream.read();
@@ -83,14 +78,43 @@ public class BleCommunicator {
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "RevThread Error!", e);
-                            onDisConnectListener.onDisConnect();
-                            BleCommunicator.this.stop();
+                            onStop();
                             break;
                         }
                     }
                 }
             }
         }.start();
+    }
+
+    private void onStop() {
+        synchronized (lock) {
+            if (!isRun)
+                return;
+            isRun = false;
+            Log.i(TAG, "onStop!");
+            if (mCommCallback != null) {
+                timer.cancel();
+                mCommCallback.onData(STATE_THREAD_END, STATE_THREAD_END);
+                mCommCallback = null;
+            }
+            try {
+                mOutputStream.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            try {
+                mIutputStream.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            try {
+                mBluetoothSocket.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        onDisConnectListener.onDisConnect();
     }
 
     /**
@@ -150,40 +174,21 @@ public class BleCommunicator {
     /**
      * 结束运行
      */
-    public void stop() {
+    synchronized public void stop() {
         if (isDestoryed)
             return;
         if (!isRun)
             return;
-        isRun = false;
+        this.onStop();
         Log.i(TAG, "stop!");
-        if (mCommCallback != null) {
-            timer.cancel();
-            mCommCallback.onData(STATE_THREAD_END, STATE_THREAD_END);
-        }
-        try {
-            mOutputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            mIutputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            mBluetoothSocket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
-    synchronized public void destory() {
+    synchronized public void destroy() {
         if (isDestoryed)
             return;
-        this.stop();
-        Log.i(TAG, "destory!");
         isDestoryed = true;
+        this.onStop();
+        Log.i(TAG, "destroy!");
     }
 
     /**

@@ -27,7 +27,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     private final static String TAG = "MainActivity";
 
-    private JNI jni = null;
+    private final JNI jni = new JNI();
     private BluetoothDevice bluetoothDevice = null;
     private final BleCommunicator commThread;
 
@@ -274,8 +274,8 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     @Override
     protected void onDestroy() {
-        Log.d(TAG, "onDestory");
-        commThread.destory();
+        Log.d(TAG, "onDestroy");
+        new Thread(commThread::destroy).start();
         super.onDestroy();
     }
 
