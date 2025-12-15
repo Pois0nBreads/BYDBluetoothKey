@@ -70,7 +70,7 @@ public class RegisterDialog {
         } else if (password2.isEmpty()) {
             Toast.makeText(activity, "确认密码不能为空", Toast.LENGTH_SHORT).show();
         } else if (!username.matches(StringMap.USERNAME_MATCH)) {
-            Toast.makeText(activity, "密码为6-10个字符(字母/数字)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "账号为6-10个字符(字母/数字)", Toast.LENGTH_SHORT).show();
         } else if (username.matches(StringMap.onlyNumber)) {
             Toast.makeText(activity, "帐号不能为纯数字", Toast.LENGTH_SHORT).show();
         } else if (!password.matches(StringMap.numberAndString)) {
