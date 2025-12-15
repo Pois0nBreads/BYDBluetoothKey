@@ -117,7 +117,6 @@ public class RegisterDialog {
     public void show() {
         if (dialog.isShowing())
             return;
-        loadTT.setText("Loading...");
         userEt.setText("");
         passEt.setText("");
         passEt2.setText("");
@@ -126,7 +125,7 @@ public class RegisterDialog {
         //进入注册模式
         boolean result = commThread.enterRegisterMode(new BleCommunicator.RegisterEventListener() {
             boolean ok = false;
-            String msg;
+            String msg = "正在检测钥匙...";
             @Override
             public void onEvent(int statusCode) {
                 if (ok)
