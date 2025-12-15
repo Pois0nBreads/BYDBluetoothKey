@@ -37,6 +37,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private RegisterDialog registerDialog;
     private ChangeBtNameDialog changeBtNameDialog;
     private ChangeBtPinDialog changeBtPinDialog;
+    private RePassDialog rePassDialog;
 
     private Thread mBluetoothThread;
     private Timer onStopTimer = new Timer();
@@ -72,6 +73,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             registerDialog.dismiss();
             changeBtNameDialog.dismiss();
             changeBtPinDialog.dismiss();
+            rePassDialog.dismiss();
             connectDialog.show();
         }));
 
@@ -97,7 +99,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             return false;
         });
         menu.add("修改密码").setOnMenuItemClickListener(item -> {
-            registerDialog.show();
+            rePassDialog.show();
             return false;
         });
         menu.add("注册蓝牙钥匙").setOnMenuItemClickListener(item -> {
@@ -173,6 +175,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         registerDialog = new RegisterDialog(this, commThread, this::setBleUserPass);
         changeBtNameDialog = new ChangeBtNameDialog(this, commThread, jni);
         changeBtPinDialog = new ChangeBtPinDialog(this, commThread, jni);
+        rePassDialog = new RePassDialog(this, commThread, jni, this::setBleUserPass);
 
         processDialog = new AlertDialog.Builder(this)
                 .setTitle("提示")
@@ -315,6 +318,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         registerDialog.dismiss();
         changeBtNameDialog.dismiss();
         changeBtPinDialog.dismiss();
+        rePassDialog.dismiss();
         super.onPause();
     }
 
