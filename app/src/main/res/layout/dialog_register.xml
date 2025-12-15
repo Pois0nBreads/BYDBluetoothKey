@@ -25,6 +25,7 @@
             <EditText
                 android:id="@+id/dialog_register_user"
                 android:maxLines="1"
+                android:inputType="text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
@@ -43,6 +44,7 @@
             <EditText
                 android:id="@+id/dialog_register_pass"
                 android:maxLines="1"
+                android:inputType="text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
@@ -61,6 +63,7 @@
             <EditText
                 android:id="@+id/dialog_register_pass2"
                 android:maxLines="1"
+                android:inputType="text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 

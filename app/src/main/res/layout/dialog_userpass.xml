@@ -19,6 +19,7 @@
             android:id="@+id/dialog_userpass_user"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:inputType="text"
             android:maxLines="1" />
 
     </LinearLayout>
@@ -37,6 +38,7 @@
             android:id="@+id/dialog_userpass_pass"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:inputType="text"
             android:maxLines="1" />
 
     </LinearLayout>
