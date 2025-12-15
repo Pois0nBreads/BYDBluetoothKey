@@ -80,8 +80,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
         initView();
         initConnectThread();
-        setBleUserPass(mSharedPreferences.getString(MyApplication.PREFERENCES_USERNAME, ""),
-                mSharedPreferences.getString(MyApplication.PREFERENCES_PASSWORD, ""));
+        setBleUserPass();
     }
 
     @Override
@@ -119,11 +118,12 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     /**
      * 设置蓝牙用户名密码
      */
-    @SuppressLint("SetTextI18n")
-    private void setBleUserPass(String username, String password) {
+    private void setBleUserPass() {
         try {
+            String username = mSharedPreferences.getString(MyApplication.PREFERENCES_USERNAME, "");
+            String password = mSharedPreferences.getString(MyApplication.PREFERENCES_PASSWORD, "");
             jni.setUserPass(username, password);
-            currutUserTT.setText("当前登录用户：" + username);
+            currutUserTT.setText(String.format("当前登录用户：%s", username));
         } catch (UnsupportedEncodingException e) {
             Log.e(TAG, "UnsupportedEncodingException:" + e.getMessage());
             finish();

@@ -2,7 +2,9 @@ package net.pxst.mybluetoothkey;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
@@ -24,14 +26,16 @@ public class RegisterDialog {
     private final OnUserPassChangeListener userPassChangeListener;
     private final Activity activity;
 
-    private TextView loadTT;
-    private EditText userEt, passEt, passEt2;
-    private LinearLayout loadLay, regLay;
+    private final TextView loadTT;
+    private final EditText userEt, passEt, passEt2;
+    private final LinearLayout loadLay, regLay;
+    private final SharedPreferences sharedPreferences;
 
     RegisterDialog(Activity activity, BleCommunicator commThread, OnUserPassChangeListener userPassChangeListener) {
         this.commThread = commThread;
         this.userPassChangeListener = userPassChangeListener;
         this.activity = activity;
+        this.sharedPreferences = activity.getSharedPreferences(MyApplication.PREFERENCES_SETTINGS, Context.MODE_PRIVATE);
         this.loadingDialog = new AlertDialog.Builder(activity)
                 .setCancelable(false)
                 .setTitle("正在注册")
@@ -83,8 +87,13 @@ public class RegisterDialog {
                     Log.d(TAG, "errorCode: " + Utils.byte2HEX((byte) errorCode));
                     activity.runOnUiThread(() -> {
                         dismiss();
-                        if (statusCode == BleCommunicator.STATE_OK)
-                            userPassChangeListener.userPassChange(username, password);
+                        if (statusCode == BleCommunicator.STATE_OK) {
+                            SharedPreferences.Editor editor = sharedPreferences.edit();
+                            editor.putString(MyApplication.PREFERENCES_USERNAME, username)
+                                    .putString(MyApplication.PREFERENCES_PASSWORD, password)
+                                    .apply();
+                            userPassChangeListener.userPassChange();
+                        }
                         String msg = BleCommunicator.getMessageByStatusCode(statusCode);
                         if (statusCode == BleCommunicator.STATE_ERR)
                             msg += BleCommunicator.getMessageByErrorCode(errorCode);
@@ -166,6 +175,6 @@ public class RegisterDialog {
         dialog.show();
     }
     public interface OnUserPassChangeListener {
-        void userPassChange(String user, String pass);
+        void userPassChange();
     }
 }

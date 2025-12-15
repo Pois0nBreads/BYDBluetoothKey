@@ -28,8 +28,6 @@ public class UserPassDialog {
         View view = activity.getLayoutInflater().inflate(R.layout.dialog_userpass, null);
         userEdit = view.findViewById(R.id.dialog_userpass_user);
         passEdit = view.findViewById(R.id.dialog_userpass_pass);
-        userEdit.setText(sharedPreferences.getString(MyApplication.PREFERENCES_USERNAME, ""));
-        passEdit.setText(sharedPreferences.getString(MyApplication.PREFERENCES_PASSWORD, ""));
 
         this.dialog = new AlertDialog.Builder(activity)
                 .setView(view)
@@ -43,6 +41,9 @@ public class UserPassDialog {
     public void show() {
         if (dialog.isShowing())
             return;
+
+        userEdit.setText(sharedPreferences.getString(MyApplication.PREFERENCES_USERNAME, ""));
+        passEdit.setText(sharedPreferences.getString(MyApplication.PREFERENCES_PASSWORD, ""));
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String user = userEdit.getText().toString();
@@ -51,7 +52,7 @@ public class UserPassDialog {
             editor.putString(MyApplication.PREFERENCES_USERNAME, user)
                     .putString(MyApplication.PREFERENCES_PASSWORD, pass)
                     .apply();
-            userPassChangeListener.userPassChange(user, pass);
+            userPassChangeListener.userPassChange();
             Toast.makeText(activity, "设置成功", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
         });
@@ -69,7 +70,7 @@ public class UserPassDialog {
     }
 
     public interface OnUserPassChangeListener {
-        void userPassChange(String user, String pass);
+        void userPassChange();
     }
 
     public interface OnUserPassTestListener {
