@@ -87,9 +87,10 @@ public class BleCommunicator {
                                     if (dataFlag == 384) {
                                         byte code = (byte) (data[5] & 0xFF);
                                         code = (byte) ((code >> 3) & 7);
-                                        Log.d(TAG, "RegisterEventCode " + code);
-                                        if (code >= 1 && registerEventListener != null)
+                                        if (code >= 1 && registerEventListener != null) {
+                                            Log.d(TAG, "RegisterEventCode " + code);
                                             registerEventListener.onEvent(code);
+                                        }
                                     }
                                 }
                             }
@@ -136,11 +137,11 @@ public class BleCommunicator {
         return true;
     }
 
-    synchronized public boolean leaveRegisterMode() {
+    synchronized public void leaveRegisterMode() {
         if (!isRun)
-            return false;
+            return;
         if (!inRegisterMode)
-            return false;
+            return;
         this.registerEventListener = null;
         inRegisterMode = false;
         registerTimer.cancel();
@@ -152,7 +153,6 @@ public class BleCommunicator {
         } catch (IOException e) {
             Log.e(TAG, "leaveRegisterMode Failed", e);
         }
-        return true;
     }
 
     public boolean sendRegisterInfo(String user, String pass, CommCallback callback) {
@@ -217,7 +217,7 @@ public class BleCommunicator {
             mOutputStream.write(data);
             mOutputStream.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "SandData Error:", e);
             commTimer.cancel();
             mCommCallback = null;
             return false;

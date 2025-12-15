@@ -129,7 +129,6 @@ public class RegisterDialog {
             String msg;
             @Override
             public void onEvent(int statusCode) {
-                Log.d(TAG, "RegisterEvent Code: " + statusCode);
                 if (ok)
                     return;
                 switch (statusCode) {
