@@ -22,7 +22,7 @@ public class MyApplication extends Application {
 
     synchronized public void setActivity(Activity activity) {
         if (mActivity != null)
-            if (!mActivity.isFinishing())
+            if (!mActivity.isDestroyed())
                 mActivity.finish();
         mActivity = activity;
     }
