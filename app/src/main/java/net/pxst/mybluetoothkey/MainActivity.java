@@ -48,6 +48,8 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private String devName;
     private boolean isShowing = false;
     private int connectRetryCount = 0;
+    private boolean systemExit = true;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +93,12 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                 })
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         menu.add("切换蓝牙设备").setOnMenuItemClickListener(item -> {
+            systemExit = false;
             startActivity(settingIntent);
+            return false;
+        });
+        menu.add("修改密码").setOnMenuItemClickListener(item -> {
+            registerDialog.show();
             return false;
         });
         menu.add("注册蓝牙钥匙").setOnMenuItemClickListener(item -> {
@@ -101,11 +108,11 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         menu.add("修改车辆蓝牙名称").setOnMenuItemClickListener(item -> {
             changeBtNameDialog.show();
             return false;
-        });
+        }).setEnabled(false);
         menu.add("修改车辆蓝牙PIN").setOnMenuItemClickListener(item -> {
             changeBtPinDialog.show();
             return false;
-        });
+        }).setEnabled(false);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -175,8 +182,11 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         connectDialog = new AlertDialog.Builder(this)
                 .setTitle("正在连接")
                 .setMessage("正在连接设备...\n设备名称:" + devName + "\n设备地址:" + macAddress)
-                .setPositiveButton("退出程序", (dialog, which) -> onBackPressed())
-                .setNeutralButton("切换蓝牙设备", (dialog, which) -> startActivity(settingIntent))
+                .setPositiveButton("退出程序", (dialog, which) -> finish())
+                .setNeutralButton("切换蓝牙设备", (dialog, which) -> {
+                    systemExit = false;
+                    startActivity(settingIntent);
+                })
                 .setCancelable(false)
                 .create();
 
@@ -243,7 +253,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                     runOnUiThread(() -> new AlertDialog.Builder(this)
                         .setTitle("错误")
                         .setMessage("连接出错")
-                        .setOnDismissListener(dialog -> onBackPressed())
+                        .setOnDismissListener(dialog -> finish())
                         .setPositiveButton("OK", null)
                         .create().show());
             }
@@ -259,6 +269,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         super.hasPermission();
         //第一次使用跳转到设置界面
         if (macAddress == null) {
+            systemExit = false;
             startActivity(settingIntent);
             return;
         }
@@ -283,7 +294,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             new AlertDialog.Builder(this)
                     .setTitle("错误")
                     .setMessage("未知的蓝牙设备状态")
-                    .setOnDismissListener(dialog -> onBackPressed())
+                    .setOnDismissListener(dialog -> finish())
                     .setPositiveButton("OK", null)
                     .create().show();
         }
@@ -291,6 +302,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     @Override
     protected void onStart() {
+        systemExit = true;
         isShowing = true;
         onStopTimer.cancel();
         super.onStart();
@@ -324,7 +336,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         Log.d(TAG, "onDestroy");
         new Thread(commThread::destroy).start();
         super.onDestroy();
-        if (backParessed)
+        if (systemExit)
             System.exit(0);
     }
 
@@ -378,10 +390,4 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         }.start();
     }
 
-    private boolean backParessed = false;
-    @Override
-    public void onBackPressed() {
-        backParessed = true;
-        finish();
-    }
 }
