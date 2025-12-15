@@ -65,9 +65,9 @@ public class RegisterDialog {
         String password2 = passEt2.getText().toString();
         if (username.isEmpty()) {
             Toast.makeText(activity, "帐号不能为空，请输入帐号", Toast.LENGTH_SHORT).show();
-        } else if (password.equals("")) {
+        } else if (password.isEmpty()) {
             Toast.makeText(activity, "密码不能为空，请输入密码", Toast.LENGTH_SHORT).show();
-        } else if (password2.equals("")) {
+        } else if (password2.isEmpty()) {
             Toast.makeText(activity, "确认密码不能为空", Toast.LENGTH_SHORT).show();
         } else if (!username.matches(StringMap.USERNAME_MATCH)) {
             Toast.makeText(activity, "密码为6-10个字符(字母/数字)", Toast.LENGTH_SHORT).show();
