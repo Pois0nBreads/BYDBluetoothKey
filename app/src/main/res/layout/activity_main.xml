@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:text="修改用户"
+            android:text="配置用户"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
     </RelativeLayout>
