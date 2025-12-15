@@ -28,7 +28,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
 
     private final JNI jni = new JNI();
     private BluetoothDevice bluetoothDevice = null;
-    private final BleCommunicator commThread;
+    private BleCommunicator commThread;
 
     private AlertDialog processDialog;
     private AlertDialog connectDialog;
@@ -47,10 +47,20 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
     private String macAddress;
     private String devName;
     private boolean isShowing = false;
+    private int connectRetryCount = 0;
 
-    {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        settingIntent = new Intent(this, SettingActivity.class);
+        settingIntent.putExtra(MyApplication.INTENT_FROM_WHAT, MyApplication.INTENT_FROM_MAIN);
+
         this.commThread = new BleCommunicator(() -> runOnUiThread(() -> {
             connectDialog.dismiss();
+            connectRetryCount = 1;
+            if (!isDestroyed())
+                Toast.makeText(myApplication, "连接成功", Toast.LENGTH_SHORT).show();
         }),() -> runOnUiThread(() -> {
             if (isDestroyed())
                 return;
@@ -61,16 +71,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             changeBtNameDialog.dismiss();
             changeBtPinDialog.dismiss();
             connectDialog.show();
-            Toast.makeText(myApplication, "蓝牙断线,正在重连...", Toast.LENGTH_SHORT).show();
         }));
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        settingIntent = new Intent(this, SettingActivity.class);
-        settingIntent.putExtra(MyApplication.INTENT_FROM_WHAT, MyApplication.INTENT_FROM_MAIN);
 
         macAddress = mSharedPreferences.getString(MyApplication.PREFERENCES_MAC_ADDRESS, null);
         devName = mSharedPreferences.getString(MyApplication.PREFERENCES_DEV_NAME, "NaN Name");
@@ -172,9 +173,9 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                 .setCancelable(false)
                 .create();
         connectDialog = new AlertDialog.Builder(this)
-                .setTitle("提示")
+                .setTitle("正在连接")
                 .setMessage("正在连接设备...\n设备名称:" + devName + "\n设备地址:" + macAddress)
-                .setPositiveButton("退出程序", (dialog, which) -> finish())
+                .setPositiveButton("退出程序", (dialog, which) -> onBackPressed())
                 .setNeutralButton("切换蓝牙设备", (dialog, which) -> startActivity(settingIntent))
                 .setCancelable(false)
                 .create();
@@ -227,7 +228,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                     } catch (IOException e) {
                         if (isDestroyed())
                             return;
-                        runOnUiThread(() -> Toast.makeText(myApplication, "连接超时,正在重试...", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> connectDialog.setTitle("正在重新连接 (第" + ++connectRetryCount + "次)"));
                         Log.e(TAG, Thread.currentThread().getName() + ": 连接超时,正在重试...", e);
                     } finally {
                         if (isDestroyed()) {
@@ -242,7 +243,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
                     runOnUiThread(() -> new AlertDialog.Builder(this)
                         .setTitle("错误")
                         .setMessage("连接出错")
-                        .setOnDismissListener(dialog -> finish())
+                        .setOnDismissListener(dialog -> onBackPressed())
                         .setPositiveButton("OK", null)
                         .create().show());
             }
@@ -282,7 +283,7 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
             new AlertDialog.Builder(this)
                     .setTitle("错误")
                     .setMessage("未知的蓝牙设备状态")
-                    .setOnDismissListener(dialog -> finish())
+                    .setOnDismissListener(dialog -> onBackPressed())
                     .setPositiveButton("OK", null)
                     .create().show();
         }
@@ -323,6 +324,8 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         Log.d(TAG, "onDestroy");
         new Thread(commThread::destroy).start();
         super.onDestroy();
+        if (backParessed)
+            System.exit(0);
     }
 
     @SuppressLint("NonConstantResourceId")
@@ -375,4 +378,10 @@ public class MainActivity extends BlueToothActivity implements View.OnClickListe
         }.start();
     }
 
+    private boolean backParessed = false;
+    @Override
+    public void onBackPressed() {
+        backParessed = true;
+        finish();
+    }
 }
